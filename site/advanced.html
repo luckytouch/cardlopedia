@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://api.scryfall.com https://api.tcgdex.net https://db.ygoprodeck.com https://api.netdeck.gg; base-uri 'self'; form-action 'self'; object-src 'none'">
+<title>Advanced Search · Cardlopedia</title>
+<meta name="description" content="Search trading cards by name, rules text, color, cost, stats, set, rarity and more, across nine card games.">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardlopedia">
+<meta property="og:title" content="Advanced Search · Cardlopedia">
+<meta property="og:description" content="Search trading cards by name, rules text and game-specific filters.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap adv">
+  <header>
+    <div class="brand"><h1><a href="./">Cardlopedia</a></h1><span>Advanced search</span></div>
+    <a class="back" id="back" href="./">← Back to results</a>
+    <h2 id="title">Advanced search</h2>
+    <nav class="games" id="games" aria-label="Choose a game"></nav>
+  </header>
+
+  <form id="adv" autocomplete="off">
+    <section class="section" aria-labelledby="h-text">
+      <h3 id="h-text">Text</h3>
+      <div class="textrow">
+        <label class="fld"><span>Card name</span>
+          <input id="name" type="search" placeholder="Any words in the name">
+          <small id="nameHelp"></small>
+        </label>
+        <label class="fld"><span>Card text</span>
+          <input id="text" type="search" placeholder="Words in the rules text">
+          <small id="textHelp">Finds cards with all these words, in any order. Use quotes for an exact phrase.</small>
+        </label>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="h-filters">
+      <h3 id="h-filters">Filters</h3>
+      <div class="fields" id="fields"><p class="muted">Loading filters…</p></div>
+    </section>
+    <noscript><p class="muted">Advanced search needs JavaScript.</p></noscript>
+  </form>
+
+  <footer class="site">
+    <p>Cardlopedia is an unofficial fan project. It isn't affiliated with or endorsed by any of the games’ publishers. Card names, images and text belong to their respective owners.</p>
+  </footer>
+</div>
+
+<div class="bar">
+  <div class="inner">
+    <div class="summary" id="summary">Choose any filters, then search.</div>
+    <button class="linkbtn" type="button" id="reset">Reset</button>
+    <button class="btn primary" type="submit" form="adv" id="go">Search</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script src="common.js"></script>
+<script src="advanced.js"></script>
+</body>
+</html>

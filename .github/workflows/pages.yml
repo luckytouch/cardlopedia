@@ -1,0 +1,55 @@
+# Builds the card and price data, then publishes site/ to GitHub Pages.
+# Runs on every push to main, daily after TCGCSV's price update, and on demand.
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # TCGCSV refreshes TCGplayer prices around 8pm US Eastern (00:00–01:00 UTC).
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deployments at once; let an in-progress one finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # If any card source is down, this step fails and the live site keeps the previous
+      # day's data, since nothing gets deployed.
+      - name: Build card and price data
+        run: node scripts/build-data.mjs
+        env:
+          SITE_URL: https://cardlopedia.com/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

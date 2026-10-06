@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://api.scryfall.com https://api.tcgdex.net https://db.ygoprodeck.com https://api.netdeck.gg; base-uri 'self'; form-action 'self'; object-src 'none'">
+<title>Cardlopedia · Search every trading card game</title>
+<meta name="description" content="Search Magic, Pokémon, Yu-Gi-Oh!, One Piece, Lorcana, Digimon, Riftbound, Cyberpunk and Star Wars Unlimited cards in one place, with advanced filters and TCGplayer prices.">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cardlopedia">
+<meta property="og:title" content="Cardlopedia · Search every trading card game">
+<meta property="og:description" content="One clean search for nine trading card games, with advanced filters and TCGplayer prices.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1><a href="./">Cardlopedia</a></h1><span>Search every trading card game</span></div>
+    <nav class="games" id="games" aria-label="Choose a game"></nav>
+    <div class="searchrow">
+      <form class="search" id="form" role="search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" aria-label="Search cards">
+        <kbd>/</kbd>
+      </form>
+      <a class="btn tall" id="advLink" href="advanced.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        <span class="hide-sm">Advanced</span><span class="count" id="fcount" hidden></span>
+      </a>
+    </div>
+    <div class="applied" id="applied" hidden></div>
+    <div class="hint" id="hint"></div>
+  </header>
+  <main>
+    <div class="grid" id="grid"></div>
+    <button class="more" id="more" hidden>Show more</button>
+    <noscript><p class="empty">Cardlopedia needs JavaScript to search cards.</p></noscript>
+  </main>
+  <footer class="site">
+    <p>Cardlopedia is an unofficial fan project. It isn't affiliated with or endorsed by any of the games’ publishers. Card names, images and text belong to their respective owners.</p>
+    <p>Card data from <a href="https://scryfall.com" rel="noopener">Scryfall</a>, <a href="https://tcgdex.dev" rel="noopener">TCGdex</a>, <a href="https://ygoprodeck.com" rel="noopener">YGOPRODeck</a>, <a href="https://optcgapi.com" rel="noopener">OPTCG API</a>, <a href="https://lorcana-api.com" rel="noopener">Lorcana API</a>, <a href="https://digimoncard.io" rel="noopener">DigimonCard.io</a>, <a href="https://riftcodex.com" rel="noopener">Riftcodex</a>, <a href="https://netdeck.gg" rel="noopener">NetDeck</a>, <a href="https://www.swu-db.com" rel="noopener">SWU-DB</a>, and Takara Tomy’s <a href="https://www.takaratomy.co.jp/products/haikyuvobacabreak/cardlist/" rel="noopener">official Haikyu!! card list</a> (translated from Japanese by Cardlopedia). Prices from <a href="https://www.tcgplayer.com" rel="noopener">TCGplayer</a> via <a href="https://tcgcsv.com" rel="noopener">TCGCSV</a>, updated daily.</p>
+  </footer>
+</div>
+
+<dialog id="dlg" aria-label="Card details"><button class="close" id="close" aria-label="Close">×</button><div id="dlgBody"></div></dialog>
+
+<script src="engine.js"></script>
+<script src="common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
