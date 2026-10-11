@@ -594,7 +594,23 @@ async function tcgFillIn(game, raws) {
 
 // Stores each card with its precomputed facet values (f) and lowercased name/number text (s),
 // so the browser can filter without knowing each source's raw format.
+// If one game's source is down, keep that game's catalog from the live site instead of
+// failing the whole build, so every other game still updates. Needs SITE_URL (set in CI).
 async function buildCatalog(game) {
+  try {
+    await buildCatalogFresh(game);
+  } catch (e) {
+    if (!SITE_URL) throw e;
+    const url = new URL(`data/catalog/${game}.json`, SITE_URL).href;
+    const previous = await fetchJSON(url).catch(() => null);
+    if (!previous?.cards?.length) throw e;   // nothing to fall back to: fail as before
+    warnings++;
+    console.warn(`  warn: ${game} source failed (${e.message}); keeping the live site's ${previous.cards.length} cards`);
+    await write(`catalog/${game}.json`, previous);
+  }
+}
+
+async function buildCatalogFresh(game) {
   const def = LOCAL[game];
   const primary = await def.load();
   if (!primary.length) throw new Error(`${game}: the card source returned no cards`);

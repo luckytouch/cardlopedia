@@ -23,8 +23,9 @@ TCGplayer's new prices, and on every push. You can also run it by hand from the 
 **Custom domain:** add it under **Settings → Pages → Custom domain**. All links are relative, so
 the site works both at a domain root and in a `/cardlopedia/` project folder.
 
-**If a daily build fails** (for example, a card source is down), nothing is deployed and the site
-keeps serving the previous day's data. GitHub emails the repository owner about failed runs.
+**If a card source is down,** that game keeps its data from the live site and every other game
+still updates; the build log shows a warning. If something else fails, nothing is deployed and
+the site keeps serving the previous day's data. GitHub emails the repository owner about failed runs.
 
 ## Run it locally
 
