@@ -40,13 +40,14 @@ async function loadFields() {
 function renderFields(fields) {
   const id = (k) => `f-${game.id}-${k}`;
   // Full-width chip rows go first so the remaining fields pack into an even grid.
-  const chipRow = (fl) => fl.kind === 'multi' || fl.kind === 'exclude';
+  const chipRow = (fl) => fl.kind === 'multi' || fl.kind === 'exclude' || fl.kind === 'within';
   fields = [...fields].sort((a, b) => chipRow(b) - chipRow(a));
   $('fields').innerHTML = fields.map((fl) => {
     const v = filters[fl.key];
     const label = `<span>${esc(fl.label)}</span>`;
     switch (fl.kind) {
       case 'multi':
+      case 'within':    // chips: every color on a card must be among the chosen ones
       case 'exclude':   // chips that hide matching cards instead of selecting them
         return `<div class="fld wide" role="group" aria-label="${esc(fl.label)}">${label}<div class="chips">${fl.options.map(opt).map((o) =>
           `<button type="button" class="chip${fl.kind === 'exclude' ? ' exclude' : ''}" data-key="${fl.key}" data-value="${esc(o.value)}" aria-pressed="${(v || []).includes(o.value)}">${esc(o.label)}</button>`).join('')}</div>${fl.help ? `<small>${esc(fl.help)}</small>` : ''}</div>`;

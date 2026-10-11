@@ -74,7 +74,7 @@ const Engine = (() => {
     const out = {};
     for (const fl of fields) {
       const v = f?.[fl.key];
-      if ((fl.kind === 'multi' || fl.kind === 'exclude') && Array.isArray(v) && v.length) out[fl.key] = v.map(String);
+      if ((fl.kind === 'multi' || fl.kind === 'exclude' || fl.kind === 'within') && Array.isArray(v) && v.length) out[fl.key] = v.map(String);
       else if (fl.kind === 'range' && Array.isArray(v)) {
         const r = [num(v[0]), num(v[1])];
         if (r[0] !== null || r[1] !== null) out[fl.key] = r;
@@ -129,6 +129,12 @@ const Engine = (() => {
         case 'exclude':   // hide cards that have any chosen value (e.g. rotated One Piece blocks)
           if (got.some((g) => want.includes(String(g)))) return false;
           break;
+        case 'within': {  // every value on the card must be chosen (e.g. One Piece Leader colors)
+          if (!got.length || !got.every((g) => want.includes(String(g)))) return false;
+          const type = asList(entry.f[fl.typeKey]).map(String);
+          if (fl.onlyTypes && !type.some((t) => fl.onlyTypes.includes(t))) return false;
+          break;
+        }
         case 'select': {
           const t = want.toLowerCase();
           if (!got.some((g) => String(g).toLowerCase() === t)) return false;

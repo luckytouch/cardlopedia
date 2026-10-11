@@ -29,7 +29,17 @@ const want = (part) => !ONLY.length || ONLY.includes(part);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let warnings = 0;
 
-async function getJSON(url, { tries = 3, timeout = 90e3, method = 'GET', body } = {}) {
+// TCGCSV listings for the smaller games are used twice per build (new-card fill-in, then
+// prices), so keep them for the run. Magic, Pokémon and Yu-Gi-Oh! are too big to hold.
+const tcgcsvCache = new Map();
+const CACHED_CATEGORIES = /^https:\/\/tcgcsv\.com\/tcgplayer\/(63|68|71|79|89|92)\//;
+function getJSON(url, opts = {}) {
+  if (!CACHED_CATEGORIES.test(url) || opts.body) return fetchJSON(url, opts);
+  if (!tcgcsvCache.has(url)) tcgcsvCache.set(url, fetchJSON(url, opts).catch((e) => { tcgcsvCache.delete(url); throw e; }));
+  return tcgcsvCache.get(url);
+}
+
+async function fetchJSON(url, { tries = 3, timeout = 90e3, method = 'GET', body } = {}) {
   for (let attempt = 1; ; attempt++) {
     try {
       const res = await fetch(url, {
@@ -285,6 +295,13 @@ const LOCAL = {
     searchable: (r) => [r.card_name, r.card_set_id],
     fields: [
       field('color', 'Color', 'multi', { get: (r) => r.card_color?.split(/[\s/]+/).filter((c) => OP_COLORS.includes(c)), order: OP_COLORS }),
+      // Deck building around a Leader (Comprehensive Rules 5-1-2-1, 5-1-2-2 and 2-3-5): only
+      // Characters, Events and Stages, and every color on the card must be one of the Leader's.
+      field('leader', 'Leader colors', 'within', {
+        get: (r) => r.card_color?.split(/[\s/]+/).filter((c) => OP_COLORS.includes(c)), order: OP_COLORS,
+        onlyTypes: ['Character', 'Event', 'Stage'], typeKey: 'type', describeAs: 'all',
+        help: 'Pick your Leader’s colors. Shows only Characters, Events and Stages you can put in that Leader’s deck.',
+      }),
       field('type', 'Card type', 'select', { get: (r) => r.card_type, order: ['Leader', 'Character', 'Event', 'Stage'] }),
       field('cost', 'Cost', 'range', { get: (r) => r.card_cost }),
       field('power', 'Power', 'range', { get: (r) => r.card_power }),
@@ -448,19 +465,154 @@ const LOCAL = {
   },
 };
 
+// ---------- Newly revealed cards from TCGplayer ----------
+// Fan databases often add a new set days or weeks after its cards are revealed, while
+// TCGplayer lists them right away. For each smaller game, any TCGplayer set published in the
+// last SUPPLEMENT_DAYS that the fan database doesn't have yet is added from TCGplayer's own
+// card details (via TCGCSV), converted into that database's format so every filter works.
+// Once the fan database adds the set, it's detected as present and the fill-in stops.
+
+const SUPPLEMENT_DAYS = 150;
+const tcgText = (html = '') => String(html).replace(/\r/g, '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/[ \t]+\n/g, '\n').trim();
+const tcgList = (v) => (v ? String(v).split(/\s*;\s*/).filter(Boolean) : []);
+const tcgNum = (v) => (v == null || v === '' ? null : num(String(v).replace(/^[^\d-]+/, '')));
+const looseName = (s = '') => String(s).toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^a-z0-9]/g, '');
+const baseNumber = (s = '') => String(s).trim().split(/\s+/)[0].replace(/_[a-z]\d+$/i, '').toUpperCase();
+
+// How to read each game's TCGplayer listing. present(raws) builds a test for whether the fan
+// database already has a TCGplayer set; raw(product, ext, group) converts one card.
+const TCG_FILL = {
+  op: {
+    present: (raws) => { const nums = new Set(raws.map((r) => baseNumber(r.card_set_id))); return (p) => nums.has(baseNumber(p.ext.Number)); },
+    raw: (p, x, g) => ({
+      card_name: p.name, card_set_id: baseNumber(x.Number), card_image_id: `tcg-${p.productId}`,
+      card_text: tcgText(x.Description), card_color: tcgList(x.Color).join(' '), card_type: x.CardType,
+      card_cost: tcgNum(x.Cost), card_power: tcgNum(x.Power), counter_amount: tcgNum(x.Counterplus),
+      life: tcgNum(x.Life), attribute: tcgList(x.Attribute).join(' '), sub_types: tcgList(x.Subtypes).join(' '),
+      rarity: x.Rarity, set_name: g.name,
+    }),
+  },
+  dgm: {
+    present: (raws) => { const nums = new Set(raws.map((r) => baseNumber(r.id))); return (p) => nums.has(baseNumber(p.ext.Number)); },
+    raw: (p, x, g) => {
+      const colors = tcgList(x.Color);
+      return {
+        id: baseNumber(x.Number), name: p.name, type: x.CardType, color: colors[0], color2: colors[1] || null,
+        level: tcgNum(String(x.LevelLv || '').replace(/\D+/g, '') || null), play_cost: tcgNum(x.PlayCost), dp: tcgNum(x.DigimonPowerDP),
+        evolution_cost: tcgNum(x.Digivolve1Cost), evolution_color: x.Digivolve1Color, evolution_level: tcgNum(x.Digivolve1Level),
+        attribute: x.DigimonAttribute, digi_type: x.DigimonType,
+        main_effect: [tcgText(x.Description), tcgText(x['Security Effect'])].filter(Boolean).join('\n'),
+        source_effect: tcgText(x['Inherited Effect']), set_name: [g.name], rarity: x.Rarity,
+      };
+    },
+  },
+  lor: {
+    present: (raws) => { const names = new Set(raws.map((r) => looseName(r.Name))); return (p) => names.has(looseName(p.name)); },
+    raw: (p, x, g) => {
+      const n = String(x.Number || '').split('/')[0];
+      return {
+        Name: p.name, Unique_ID: `${g.abbreviation || 'NEW'}-${n.padStart(3, '0')}`, Card_Num: num(n), Set_Name: g.name,
+        Type: x.CardType, Classifications: tcgList(x.Classification).join(', '), Body_Text: tcgText(x.Description),
+        Flavor_Text: tcgText(x['Flavor Text']), Rarity: x.Rarity, Color: tcgList(x.InkType).join(', '),
+        Cost: tcgNum(x['Cost Ink']), Inkable: x.InkwellIcononCard === 'Yes', Strength: tcgNum(x.Strength),
+        Willpower: tcgNum(x.Willpower), Lore: tcgNum(x['Lore Value']),
+      };
+    },
+  },
+  rb: {
+    present: (raws) => { const names = new Set(raws.map((r) => looseName(r.name))); return (p) => names.has(looseName(p.name)); },
+    raw: (p, x, g) => {
+      const [n, total] = String(x.Number || '').split('/');
+      return {
+        id: `tcg-${p.productId}`, name: p.name, tcgplayer_id: String(p.productId), collector_number: num(n),
+        riftbound_id: `${(g.abbreviation || 'new').toLowerCase()}-${n}-${total || ''}`,
+        orientation: x['Card Type'] === 'Battlefield' ? 'landscape' : 'portrait',
+        classification: { type: x['Card Type'], rarity: x.Rarity, domain: tcgList(x.Domain), supertype: null },
+        attributes: { energy: tcgNum(x['Energy Cost']), might: tcgNum(x.Might), power: tcgNum(x['Power Cost']) },
+        text: { plain: tcgText(x.Description), flavour: tcgText(x['Flavor Text']) || null },
+        set: { label: g.name }, tags: tcgList(x.Tag), media: {},
+      };
+    },
+  },
+  cp: {
+    present: (raws) => { const names = new Set(raws.map((r) => looseName(r.display_name || r.name))); return (p) => names.has(looseName(p.name)); },
+    raw: (p, x, g) => ({
+      printing_id: `tcg-${p.productId}`, display_name: p.name.replace(/\s+\([^)]*\)$/, ''), name: p.name,
+      card_type: x.CardType, color: x.Color, cost: tcgNum(x.Cost), power: tcgNum(x.Power),
+      ram: tcgNum(String(x.RAM || '').replace(/^x/i, '')), is_eddiable: x.Eddies == null ? null : /true/i.test(x.Eddies),
+      classifications: tcgList(x.Tags), keywords: [], official_rules_text_en: tcgText(x.Description),
+      set: { name: g.name }, print_number: x.Number, rarity: x.Rarity,
+    }),
+  },
+  swu: {
+    present: (raws) => { const names = new Set(raws.map((r) => looseName(`${r.Name} ${r.Subtitle || ''}`))); return (p) => names.has(looseName(p.name)); },
+    raw: (p, x, g) => {
+      const [name, subtitle] = p.name.split(/\s+-\s+/);
+      return {
+        Set: g.abbreviation || g.name, SetName: g.name, Number: x.Number, Name: name, Subtitle: subtitle || null,
+        Type: x.CardType, Traits: tcgList(x.Traits), Aspects: tcgList(x.Aspect), Arenas: tcgList(x['Arena Type']),
+        Cost: tcgNum(x.Cost), Power: tcgNum(x.Power), HP: tcgNum(x.HP), FrontText: tcgText(x.Description), Rarity: x.Rarity,
+      };
+    },
+  },
+};
+
+async function tcgFillIn(game, raws) {
+  const fill = TCG_FILL[game];
+  if (!fill) return [];
+  const cat = CATEGORY[game];
+  const cutoff = Date.now() - SUPPLEMENT_DAYS * 864e5;
+  const groups = ((await getJSON(`${TCGCSV}/${cat}/groups`))?.results || [])
+    .filter((g) => Date.parse(g.publishedOn) >= cutoff)
+    .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn));            // newest first
+  const isPresent = fill.present(raws);
+  const extra = [];
+  const added = [];
+  for (const g of groups) {
+    const products = ((await getJSON(`${TCGCSV}/${cat}/${g.groupId}/products`))?.results || [])
+      .map((p) => ({ ...p, ext: Object.fromEntries((p.extendedData || []).map((e) => [e.name, e.value])) }))
+      .filter((p) => p.ext.Number);                                          // cards only, not sealed product
+    if (!products.length) continue;
+    // A set the fan database has (most of its cards match) is left alone.
+    if (products.filter(isPresent).length >= products.length / 2) continue;
+    for (const p of products) {
+      const raw = fill.raw(p, p.ext, g);
+      // Revealed cards often have no image on TCGplayer yet (imageCount 0); the site then shows
+      // a placeholder, and a later daily build picks the image up once it's posted.
+      const img = (p.imageUrl || `https://tcgplayer-cdn.tcgplayer.com/product/${p.productId}_200w.jpg`).replace(/_\d+w\.jpg$/, '');
+      const hasImage = p.imageCount > 0;
+      raw._tcg = { productId: p.productId, image: hasImage ? `${img}_400w.jpg` : null, large: hasImage ? `${img}_in_1000x1000.jpg` : null, set: g.name };
+      extra.push(raw);
+    }
+    added.push(`${g.name} (${products.length})`);
+  }
+  if (added.length) log(`  ${game}: added from TCGplayer, not yet in the fan database: ${added.join(', ')}`);
+  return extra;
+}
+
 // Stores each card with its precomputed facet values (f) and lowercased name/number text (s),
 // so the browser can filter without knowing each source's raw format.
 async function buildCatalog(game) {
   const def = LOCAL[game];
-  const raws = await def.load();
-  if (!raws.length) throw new Error(`${game}: the card source returned no cards`);
+  const primary = await def.load();
+  if (!primary.length) throw new Error(`${game}: the card source returned no cards`);
+  // Newly revealed sets from TCGplayer go first, since browsing shows newest first.
+  const raws = [...(await tcgFillIn(game, primary)), ...primary];
   const cards = raws.map((raw, i) => {
     const f = {};
     for (const fl of def.fields) {
       const vals = asList(fl.get(raw)).map((v) => (fl.kind === 'range' ? num(v) : String(v))).filter((v) => v !== null);
       if (vals.length) f[fl.key] = vals.length === 1 ? vals[0] : vals;
     }
-    return { c: def.card(raw, i), f, s: def.searchable(raw).filter(Boolean).join('\n').toLowerCase() };
+    const c = def.card(raw, i);
+    if (raw._tcg) {
+      // Filled in from TCGplayer: use its images, and say where the details came from.
+      Object.assign(c, { id: `tcg-${raw._tcg.productId}`, image: raw._tcg.image, large: raw._tcg.large, preview: true });
+      c.link = `https://www.tcgplayer.com/product/${raw._tcg.productId}`;
+    }
+    return { c, f, s: def.searchable(raw).filter(Boolean).join('\n').toLowerCase() };
   });
   const fields = def.fields.map(({ get, order, labels, ...fl }) => {
     if (fl.kind === 'range' || fl.kind === 'text') return fl;

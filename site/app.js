@@ -104,9 +104,12 @@ async function search(q, page = 1) {
 }
 const nearBottom = () => !$('more').hidden && $('more').getBoundingClientRect().top < innerHeight + 800;
 
+// Stand-in for cards with no image yet (newly revealed cards before images are posted).
+const noImage = (c) => `<div class="noimg"><b>${esc(c.name)}</b><span>${esc(c.type || '')}</span><small>Image coming soon</small></div>`;
+
 const tile = (c, i) => `
   <button class="card${c.landscape ? ' land' : ''}" data-i="${i}">
-    <div class="img">${c.image ? `<img loading="lazy" src="${esc(c.image)}" alt="${esc(c.name)}">` : ''}</div>
+    <div class="img">${c.image ? `<img loading="lazy" src="${esc(c.image)}" alt="${esc(c.name)}">` : noImage(c)}</div>
     <div class="meta"><b>${esc(c.name)}</b><span class="mono">${esc([c.number, c.set].filter(Boolean).join(' · '))}</span></div>
   </button>`;
 
@@ -171,11 +174,12 @@ function showCard(c) {
   $('dlg').dataset.id = c.id;
   $('dlgBody').innerHTML = `
     <div class="detail">
-      <div class="art"><img src="${esc(c.large || c.image)}" alt="${esc(c.name)}"></div>
+      <div class="art">${c.large || c.image ? `<img src="${esc(c.large || c.image)}" alt="${esc(c.name)}">` : `<div class="card"><div class="img">${noImage(c)}</div></div>`}</div>
       <div>
         <h2>${esc(c.name)}</h2>
         <div class="type">${esc(c.type || (c.lazy ? 'Loading details…' : ''))}</div>
         ${c.untranslated ? '<p class="pnote">Not translated yet. Shown in the original Japanese.</p>' : ''}
+        ${c.preview ? '<p class="pnote">Newly revealed card. Its details come from TCGplayer’s listing until the card database adds this set.</p>' : ''}
         ${c.text ? `<div class="text">${esc(c.text)}</div>` : ''}
         ${stats ? `<dl class="stats">${stats}</dl>` : ''}
         ${c.jp && !c.untranslated ? `<details class="original"><summary>Original Japanese</summary>

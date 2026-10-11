@@ -67,6 +67,13 @@ the first time they open that game.
 **Cyberpunk images:** NetDeck signs each image link for about five minutes. The site fetches
 current links when Cyberpunk opens, and fetches them again if an image fails to load.
 
+**Newly revealed cards:** fan databases often add a new set days or weeks after its cards are
+revealed, but TCGplayer lists them right away. For One Piece, Lorcana, Digimon, Riftbound,
+Cyberpunk and Star Wars, the daily build adds any TCGplayer set from the last 150 days that the
+fan database doesn't have yet, using TCGplayer's card details. These cards are marked "Newly
+revealed" on the site, and show an "Image coming soon" placeholder until TCGplayer posts the
+image. Once the fan database adds the set, the build switches back to it automatically.
+
 **Haikyu!! translations:** the game is only published in Japanese. Card names and rules text
 are translated by hand in `scripts/haikyu-en.json`, using the glossary in `scripts/haikyu.mjs`;
 teams, years, positions, rarities and two-character "duo" cards are translated by rule. When a
