@@ -586,11 +586,55 @@ async function tcgFillIn(game, raws) {
       raw._tcg = { productId: p.productId, image: hasImage ? `${img}_400w.jpg` : null, large: hasImage ? `${img}_in_1000x1000.jpg` : null, set: g.name };
       extra.push(raw);
     }
+    if (fill.art) await fill.art(g, extra.filter((r) => r._tcg.set === g.name && !r._tcg.image));
     added.push(`${g.name} (${products.length})`);
   }
   if (added.length) log(`  ${game}: added from TCGplayer, not yet in the fan database: ${added.join(', ')}`);
   return extra;
 }
+
+// One Piece reveals reach TCGplayer as text-only presale listings, but One Piece Top Decks posts
+// each set's revealed card art (named by card number, e.g. EB05-006.jpg, EB05-006_p2.jpg for its
+// parallel) on a "full card list" page. Use that art for cards TCGplayer has no image for yet.
+// Parallels are only matched when there's exactly one, so a card never shows the wrong version.
+const OPTD = 'https://onepiecetopdecks.com';
+let optdPages = null;
+async function opTopDecksArt(group, cards) {
+  if (!cards.length || !group.abbreviation) return;
+  const text = async (url) => {
+    const res = await fetch(url, { headers: { ...UA, Accept: 'text/html,application/xml' }, signal: AbortSignal.timeout(60e3) });
+    if (!res.ok) throw new Error(`${url} answered ${res.status}`);
+    return res.text();
+  };
+  try {
+    optdPages ??= (await Promise.all(['page', 'post'].map((t) => text(`${OPTD}/wp-sitemap-posts-${t}-1.xml`).catch(() => ''))))
+      .flatMap((xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]));
+    const code = group.abbreviation.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const url = optdPages.find((u) => u.includes(`/cards/${code}-cards-`));
+    if (!url) return;
+    const html = await text(url);
+    const art = new Map();                                          // EB05-006_p2 -> image url
+    for (const [, src, id] of html.matchAll(/(?:data-)?src="(https:\/\/onepiecetopdecks\.com\/wp-content\/gallery\/[^"]+?\/([A-Z]+\d+-\d+(?:_p\d+)?)\.(?:jpe?g|png|webp))"/gi)) {
+      art.set(id.toUpperCase().replace('_P', '_p'), src);
+    }
+    const variant = (r) => /\((Alternate Art|SP|Manga|Full Art|Treasure[^)]*|[^)]*Parallel[^)]*|Wanted Poster|Gold)\)/i.test(r.card_name)
+      || !r.card_set_id.replace(/-.*/, '').toLowerCase().startsWith(code.slice(0, 4));   // reprint from another set
+    const byNumber = Map.groupBy(cards, (r) => r.card_set_id);
+    let found = 0;
+    for (const [n, rs] of byNumber) {
+      const regular = rs.filter((r) => !variant(r)), parallels = rs.filter(variant);
+      const pics = [...art.keys()].filter((k) => k.startsWith(`${n}_p`));
+      const pairs = [];
+      if (regular.length === 1 && art.has(n)) pairs.push([regular[0], art.get(n)]);
+      if (parallels.length === 1 && pics.length === 1) pairs.push([parallels[0], art.get(pics[0])]);
+      for (const [r, src] of pairs) { r._tcg.image = r._tcg.large = src; found++; }
+    }
+    if (found) log(`    ${group.abbreviation}: ${found} of ${cards.length} images from One Piece Top Decks`);
+  } catch (e) {
+    console.warn(`  warn: One Piece Top Decks art unavailable for ${group.abbreviation}: ${e.message}`);
+  }
+}
+TCG_FILL.op.art = opTopDecksArt;
 
 // Stores each card with its precomputed facet values (f) and lowercased name/number text (s),
 // so the browser can filter without knowing each source's raw format.

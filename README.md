@@ -74,6 +74,8 @@ Cyberpunk and Star Wars, the daily build adds any TCGplayer set from the last 15
 fan database doesn't have yet, using TCGplayer's card details. These cards are marked "Newly
 revealed" on the site, and show an "Image coming soon" placeholder until TCGplayer posts the
 image. Once the fan database adds the set, the build switches back to it automatically.
+For One Piece, cards TCGplayer has no image for yet use the revealed art posted on
+[One Piece Top Decks](https://onepiecetopdecks.com)' full card list for that set, matched by card number.
 
 **Haikyu!! translations:** the game is only published in Japanese. Card names and rules text
 are translated by hand in `scripts/haikyu-en.json`, using the glossary in `scripts/haikyu.mjs`;
