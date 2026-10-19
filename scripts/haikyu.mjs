@@ -11,6 +11,7 @@
 // Glossary: ガッツ Guts · 登場 On Entry / put into play · ドロップ drop · ロスト loses the rally ·
 // ドシャット Kill Block · ワンタッチ One Touch · ツーアタック Setter Dump · フェイント Feint ·
 // ブロックアウト Block Out · バックアタック Back Attack · Aパス A-Pass · ユース Youth ·
+// 同時多発位置差攻撃〈所属〉 Synchronized Attack 〈Team〉 ·
 // 疑似ユース Rookie Camp · セットカード Set card · センター/サイドブロッカー Center/Side Blocker.
 
 import fs from 'node:fs';
@@ -96,6 +97,7 @@ const PRODUCTS = {
   'HV-P01': 'Booster Pack: Battle at the Garbage Dump', 'HV-P02': 'Booster Pack: The Strongest Challenger',
   'HV-P03': 'Booster Pack: Youth & Selection Training Camp', 'HV-D01': 'Starter Deck: Karasuno High',
   'HV-D02': 'Starter Deck: Nekoma High', 'HV-D03': 'Starter Deck: Inarizaki High', HVBP: 'Donpisha Deck', 'HV-PR': 'Promo Cards',
+  'HV-P04': 'Booster Pack: Talent and Sense', 'HV-D04': 'Starter Deck: Aoba Johsai High',
 };
 export const productOf = (type, jpName) => PRODUCTS[type] || `${type}${jpName ? ` (${jpName})` : ''}`;
 
