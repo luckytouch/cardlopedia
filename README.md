@@ -71,7 +71,8 @@ current links when Cyberpunk opens, and fetches them again if an image fails to 
 **Newly revealed cards:** fan databases often add a new set days or weeks after its cards are
 revealed, but TCGplayer lists them right away. For One Piece, Lorcana, Digimon, Riftbound,
 Cyberpunk and Star Wars, the daily build adds any TCGplayer set from the last 150 days that the
-fan database doesn't have yet, using TCGplayer's card details. These cards are marked "Newly
+fan database doesn't have yet, using TCGplayer's card details (for One Piece and Digimon, also
+single cards missing from a set the database only partly has). These cards are marked "Newly
 revealed" on the site, and show an "Image coming soon" placeholder until TCGplayer posts the
 image. Once the fan database adds the set, the build switches back to it automatically.
 For One Piece, cards TCGplayer has no image for yet use the revealed art posted on

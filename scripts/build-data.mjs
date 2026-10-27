@@ -479,12 +479,13 @@ const tcgText = (html = '') => String(html).replace(/\r/g, '').replace(/<br\s*\/
 const tcgList = (v) => (v ? String(v).split(/\s*;\s*/).filter(Boolean) : []);
 const tcgNum = (v) => (v == null || v === '' ? null : num(String(v).replace(/^[^\d-]+/, '')));
 const looseName = (s = '') => String(s).toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^a-z0-9]/g, '');
-const baseNumber = (s = '') => String(s).trim().split(/\s+/)[0].replace(/_[a-z]\d+$/i, '').toUpperCase();
+const baseNumber = (s = '') => String(s).trim().replace(/\s*-\s*/g, '-').split(/\s+/)[0].replace(/_[a-z]\d+$/i, '').toUpperCase();
 
 // How to read each game's TCGplayer listing. present(raws) builds a test for whether the fan
 // database already has a TCGplayer set; raw(product, ext, group) converts one card.
 const TCG_FILL = {
   op: {
+    byNumber: true,
     present: (raws) => { const nums = new Set(raws.map((r) => baseNumber(r.card_set_id))); return (p) => nums.has(baseNumber(p.ext.Number)); },
     raw: (p, x, g) => ({
       card_name: p.name, card_set_id: baseNumber(x.Number), card_image_id: `tcg-${p.productId}`,
@@ -495,6 +496,7 @@ const TCG_FILL = {
     }),
   },
   dgm: {
+    byNumber: true,
     present: (raws) => { const nums = new Set(raws.map((r) => baseNumber(r.id))); return (p) => nums.has(baseNumber(p.ext.Number)); },
     raw: (p, x, g) => {
       const colors = tcgList(x.Color);
@@ -575,9 +577,16 @@ async function tcgFillIn(game, raws) {
       .map((p) => ({ ...p, ext: Object.fromEntries((p.extendedData || []).map((e) => [e.name, e.value])) }))
       .filter((p) => p.ext.Number);                                          // cards only, not sealed product
     if (!products.length) continue;
-    // A set the fan database has (most of its cards match) is left alone.
-    if (products.filter(isPresent).length >= products.length / 2) continue;
-    for (const p of products) {
+    // A set the fan database has (most of its cards match) is left alone, except that games
+    // matched by card number still get the newly revealed cards the database hasn't added yet.
+    // (Name matching is too loose for that: "Judy Álvarez" vs "Judy Alvarez" would duplicate.)
+    let wanted = products;
+    if (products.filter(isPresent).length >= products.length / 2) {
+      if (!fill.byNumber) continue;
+      wanted = products.filter((p) => !isPresent(p));
+      if (!wanted.length) continue;
+    }
+    for (const p of wanted) {
       const raw = fill.raw(p, p.ext, g);
       // Revealed cards often have no image on TCGplayer yet (imageCount 0); the site then shows
       // a placeholder, and a later daily build picks the image up once it's posted.
@@ -587,7 +596,7 @@ async function tcgFillIn(game, raws) {
       extra.push(raw);
     }
     if (fill.art) await fill.art(g, extra.filter((r) => r._tcg.set === g.name && !r._tcg.image));
-    added.push(`${g.name} (${products.length})`);
+    added.push(wanted === products ? `${g.name} (${products.length})` : `${g.name} (${wanted.length} new cards)`);
   }
   if (added.length) log(`  ${game}: added from TCGplayer, not yet in the fan database: ${added.join(', ')}`);
   return extra;
