@@ -610,13 +610,14 @@ const OPTD = 'https://onepiecetopdecks.com';
 let optdPages = null;
 async function opTopDecksArt(group, cards) {
   if (!cards.length || !group.abbreviation) return;
-  const text = async (url) => {
-    const res = await fetch(url, { headers: { ...UA, Accept: 'text/html,application/xml' }, signal: AbortSignal.timeout(60e3) });
-    if (!res.ok) throw new Error(`${url} answered ${res.status}`);
-    return res.text();
+  const text = async (url, tries = 3) => {
+    const res = await fetch(url, { headers: { ...UA, Accept: 'text/html,application/xml' }, signal: AbortSignal.timeout(60e3) }).catch((e) => ({ ok: false, status: e.message }));
+    if (res.ok) return res.text();
+    if (tries > 1) { await new Promise((r) => setTimeout(r, 5e3)); return text(url, tries - 1); }
+    throw new Error(`${url} answered ${res.status}`);
   };
   try {
-    optdPages ??= (await Promise.all(['page', 'post'].map((t) => text(`${OPTD}/wp-sitemap-posts-${t}-1.xml`).catch(() => ''))))
+    optdPages ??= (await Promise.all(['page', 'post'].map((t) => text(`${OPTD}/wp-sitemap-posts-${t}-1.xml`))))
       .flatMap((xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]));
     const code = group.abbreviation.toLowerCase().replace(/[^a-z0-9]/g, '');
     const url = optdPages.find((u) => u.includes(`/cards/${code}-cards-`));
@@ -663,12 +664,29 @@ async function buildCatalog(game) {
   }
 }
 
+// A filled-in card with no art this time keeps the art the live site already shows for it, so
+// a source that's briefly unreachable (e.g. One Piece Top Decks) doesn't take images away.
+async function keepLiveArt(game, extra) {
+  const missing = extra.filter((r) => !r._tcg.image);
+  if (!SITE_URL || !missing.length) return;
+  const live = await fetchJSON(new URL(`data/catalog/${game}.json`, SITE_URL).href).catch(() => null);
+  const art = new Map((live?.cards || []).filter((x) => x.c.preview && x.c.image).map((x) => [x.c.id, x.c]));
+  let kept = 0;
+  for (const r of missing) {
+    const c = art.get(`tcg-${r._tcg.productId}`);
+    if (c) { r._tcg.image = c.image; r._tcg.large = c.large || c.image; kept++; }
+  }
+  if (kept) log(`  ${game}: kept the live site's art for ${kept} newly revealed cards`);
+}
+
 async function buildCatalogFresh(game) {
   const def = LOCAL[game];
   const primary = await def.load();
   if (!primary.length) throw new Error(`${game}: the card source returned no cards`);
   // Newly revealed sets from TCGplayer go first, since browsing shows newest first.
-  const raws = [...(await tcgFillIn(game, primary)), ...primary];
+  const extra = await tcgFillIn(game, primary);
+  await keepLiveArt(game, extra);
+  const raws = [...extra, ...primary];
   const cards = raws.map((raw, i) => {
     const f = {};
     for (const fl of def.fields) {
